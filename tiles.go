@@ -10,11 +10,11 @@ type tile struct {
 	cont int
 }
 
-func (t tile) getContent() int {
+func (t *tile) getContent() int {
 	return int(t.cont)
 }
 
-func (t tile) getRendered() string {
+func (t *tile) getRendered() string {
 	return fmt.Sprint(t.cont)
 }
 
@@ -35,11 +35,18 @@ func (t *tile) randIni() {
 	}
 }
 
+func (t *tile) isSame(tt *tile) bool {
+	return tt.cont == t.cont
+}
+
 func (t *tile) merge(tt *tile) bool {
-	if tt.isEmpty() {
-		return false
+	if t.isEmpty() || t.isSame(tt) {
+		if tt.isEmpty() {
+			return false
+		}
+		t.cont += tt.cont
+		tt.init()
+		return true
 	}
-	t.cont += tt.cont
-	tt.init()
-	return true
+	return false
 }
