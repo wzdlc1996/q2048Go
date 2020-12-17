@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"time"
 )
@@ -15,7 +16,10 @@ func (t *tile) getContent() int {
 }
 
 func (t *tile) getRendered() string {
-	return fmt.Sprint(t.cont)
+	if t.cont == 0 {
+		return "-"
+	}
+	return fmt.Sprint(int(math.Pow(2, float64(t.cont))))
 }
 
 func (t *tile) init() {
@@ -23,7 +27,7 @@ func (t *tile) init() {
 }
 
 func (t *tile) isEmpty() bool {
-	return t.cont == 0
+	return t == nil || t.cont == 0
 }
 
 func (t *tile) randIni() {
@@ -44,9 +48,17 @@ func (t *tile) merge(tt *tile) bool {
 		if tt.isEmpty() {
 			return false
 		}
-		t.cont += tt.cont
+		t.cont++
 		tt.init()
 		return true
 	}
 	return false
+}
+
+func (t *tile) copy(tt tile) bool {
+	if t.isSame(&tt) {
+		return false
+	}
+	t.cont = tt.cont
+	return true
 }

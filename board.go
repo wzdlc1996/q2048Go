@@ -7,11 +7,13 @@ import (
 )
 
 const (
-	wid int = 4
-	hei int = 4
+	wid      int     = 4
+	hei      int     = 4
+	new1prob float32 = 0.5
 )
 
-type board struct {
+// Board is the basic board framework for 2048 game
+type Board struct {
 	body  [hei][wid]tile
 	size  int
 	avail map[int]bool
@@ -19,7 +21,8 @@ type board struct {
 	rdex  map[[2]int]int
 }
 
-func (b *board) init() {
+// Init initializes the board with empty tiles
+func (b *Board) Init() {
 	i := 0
 	b.avail = make(map[int]bool)
 	b.index = make(map[int][2]int)
@@ -36,7 +39,8 @@ func (b *board) init() {
 	b.size = i
 }
 
-func (b *board) updateAvail() {
+// UpdateAvail updates Board.avail, which stores the dictionary of tiles availability(isEmpty)
+func (b *Board) UpdateAvail() map[int]bool {
 	for ix := 0; ix < wid; ix++ {
 		for iy := 0; iy < hei; iy++ {
 			i := b.rdex[[2]int{ix, iy}]
@@ -48,9 +52,10 @@ func (b *board) updateAvail() {
 			i++
 		}
 	}
+	return b.avail
 }
 
-func (b *board) geti(n int) (*tile, bool) {
+func (b *Board) geti(n int) (*tile, bool) {
 	ind, ok := b.index[n]
 	if !ok {
 		return nil, ok
@@ -58,7 +63,7 @@ func (b *board) geti(n int) (*tile, bool) {
 	return &b.body[ind[0]][ind[1]], true
 }
 
-func (b *board) getxy(arr [2]int) (*tile, bool) {
+func (b *Board) getxy(arr [2]int) (*tile, bool) {
 	i, ok := b.rdex[arr]
 	if !ok {
 		return nil, ok
@@ -66,7 +71,7 @@ func (b *board) getxy(arr [2]int) (*tile, bool) {
 	return b.geti(i)
 }
 
-func (b *board) getAvail() []int {
+func (b *Board) getAvail() []int {
 	res := make([]int, 0, b.size)
 	for k, v := range b.avail {
 		if v {
@@ -76,8 +81,10 @@ func (b *board) getAvail() []int {
 	return res
 }
 
-func (b *board) randSet(n int) {
+// RandSet initialize the tiles by randIni randomly
+func (b *Board) RandSet(n int) {
 	rand.Seed(time.Now().UnixNano())
+	_ = b.UpdateAvail()
 	temp := b.getAvail()
 
 	var size int
@@ -96,7 +103,41 @@ func (b *board) randSet(n int) {
 	}
 }
 
-func (b *board) tilingAlong(mode byte) bool {
+func (b *Board) tilingXY(xy1, xy2 [2]int) bool {
+	get1, ok1 := b.getxy(xy1)
+	get2, ok2 := b.getxy(xy2)
+	if !(ok1 && ok2) {
+		return false
+	}
+	done := get1.merge(get2)
+	return done
+}
+
+func addArr(xy, arr [2]int) [2]int {
+	return [2]int{xy[0] + arr[0], xy[1] + arr[1]}
+}
+
+func sliceTileNonEmpty(slc []tile) []tile {
+	res := make([]tile, 0, cap(slc))
+	for i := range slc {
+		if !slc[i].isEmpty() {
+			res = append(res, slc[i])
+		}
+	}
+	return res
+}
+
+func sliceTiling(slc []tile) ([]tile, bool) {
+	res := sliceTileNonEmpty(slc)
+	resf := false
+	for i := 0; i < len(res)-1; i++ {
+		resf = res[i].merge(&(res[i+1])) || resf
+	}
+	ret := sliceTileNonEmpty(res)
+	return ret, resf
+}
+
+func (b *Board) tilingAlong(mode byte) bool {
 	res := false
 	var starts [][2]int
 	var arr [2]int
@@ -125,53 +166,65 @@ func (b *board) tilingAlong(mode byte) bool {
 		for i := 0; i < wid; i++ {
 			starts[i] = [2]int{0, i}
 		}
+	default:
+		return false
 	}
 	for key := range starts {
+		tileSlc := make([]tile, 0, wid*hei)
+		indSlc := make([]int, 0, wid*hei)
 		nowxy := starts[key]
-		nexxy := [2]int{nowxy[0] + arr[0], nowxy[1] + arr[1]}
 		for true {
-			var nex *tile
-			var okex bool
-			for true {
-				nex, okex = b.getxy(nexxy)
-				if !okex {
-					break
-				}
-				if nex.isEmpty() {
-					nexxy = [2]int{nexxy[0] + arr[0], nexxy[1] + arr[1]}
-					continue
-				}
+			nowt, ok := b.getxy(nowxy)
+			if !ok {
 				break
 			}
-			if !okex {
-				break
-			}
-			now, _ := b.getxy(nowxy)
-
-			// but here. can be now==nex. And now [2, 0, 2, 0] ->r [0, 0, 2, 2]
-			done := now.merge(nex)
-
-			if done {
-				b.avail[b.rdex[nowxy]] = false
-				b.avail[b.rdex[nexxy]] = true
-			}
-			res = res || done
-			nowxy = [2]int{nowxy[0] + arr[0], nowxy[1] + arr[1]}
+			tileSlc = append(tileSlc, *nowt)
+			indSlc = append(indSlc, b.rdex[nowxy])
+			nowxy = addArr(nowxy, arr)
 		}
+		tileRes, resf := sliceTiling(tileSlc)
+		for j := range indSlc {
+			ind := indSlc[j]
+			ptr, ok := b.geti(ind)
+			if !ok {
+				break
+			}
+			if j < len(tileRes) {
+				resf = ptr.copy(tileRes[j]) || resf
+			} else {
+				ptr.init()
+			}
+		}
+		res = res || resf
 	}
 	return res
 }
 
-func (b *board) gameLoop(mode byte) bool {
-	return false
+// GameLoop is the main loop of the 2048 game
+func (b *Board) GameLoop(mode byte) bool {
+	res := b.tilingAlong(mode)
+	if res {
+		rand.Seed(time.Now().UnixNano())
+		var n int
+		check := rand.Float32()
+		if check < new1prob {
+			n = 1
+		} else {
+			n = 2
+		}
+		b.RandSet(n)
+	}
+	return res
 }
 
-func (b *board) roughRender() {
+// RoughRender returns a string for render the board roughly
+func (b *Board) RoughRender() string {
+	z := ""
 	for ix := 0; ix < hei; ix++ {
 		for iy := 0; iy < wid; iy++ {
-			fmt.Print(b.body[ix][iy].getRendered(), "\t")
+			z += fmt.Sprint(b.body[ix][iy].getRendered(), "\t")
 		}
-		fmt.Println()
+		z += "\n"
 	}
-
+	return z
 }

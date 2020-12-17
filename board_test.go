@@ -1,14 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"testing"
 )
 
 func Test_board(t *testing.T) {
-	var testb board
-	testb.init()
-	testb.roughRender()
-
+	var testb Board
+	testb.Init()
+	fmt.Println(testb.RoughRender())
 }
 
 func copyAvail(tar map[int]bool) map[int]bool {
@@ -20,12 +20,12 @@ func copyAvail(tar map[int]bool) map[int]bool {
 }
 
 func Test_randSet(t *testing.T) {
-	var testb board
-	testb.init()
+	var testb Board
+	testb.Init()
 	avail0 := copyAvail(testb.avail)
-	testb.randSet(5)
+	testb.RandSet(5)
 	avail1 := copyAvail(testb.avail)
-	testb.updateAvail()
+	testb.UpdateAvail()
 	avail2 := copyAvail(testb.avail)
 	res := true
 	for i := 0; i < testb.size; i++ {
@@ -44,12 +44,12 @@ func Test_randSet(t *testing.T) {
 }
 
 func Test_tiling(t *testing.T) {
-	var testb board
-	testb.init()
-	testb.randSet(5)
+	var testb Board
+	testb.Init()
+	testb.RandSet(5)
 	testb.tilingAlong('b')
 	avail1 := copyAvail(testb.avail)
-	testb.updateAvail()
+	testb.UpdateAvail()
 	avail2 := copyAvail(testb.avail)
 	res := true
 	for i := 0; i < testb.size; i++ {
